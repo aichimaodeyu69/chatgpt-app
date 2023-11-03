@@ -1,6 +1,5 @@
 import { Chat } from "@/types/chat"
 
-
 export function groupByDate(chatList: Chat[]) {
     const groupMap = new Map<string, Chat[]>()
     chatList.forEach((item) => {
@@ -37,4 +36,12 @@ export function groupByDate(chatList: Chat[]) {
         )
     })
     return groupList
+}
+
+export function sleep(time: number) {
+    return new Promise((resolve) =>
+        setTimeout(() => {
+            resolve('time is up')
+        }, time)
+    )
 }
