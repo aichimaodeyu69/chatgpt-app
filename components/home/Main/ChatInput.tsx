@@ -12,16 +12,52 @@ import { ActionType } from '@/reducers/AppReducer'
 export default function ChatInput() {
     const [messageText, setMessageText] = useState("")
     const stopRef =  useRef(false)
+    const chatIdRef = useRef("")
     const {
         state:{messageList,currentModel,streamingId},dispatch
     } = useAppContext()
 
-    async function send(){
-        const message: Message = {
-            id: uuidv4(),
-            role: "user",
-            content:messageText
+    async function createOrUpdateMessage(message:Message){
+        const response = await fetch("/api/message/update", {
+            method: "POST",
+            headers: {
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(message)
+        })
+        if (!response.ok) {
+            console.log(response.statusText)
+            return
         }
+        const {data} = await response.json()
+        if(!chatIdRef.current){
+            chatIdRef.current = data.message.chatId
+        }
+        return data.message
+    }
+
+    async function deleteMessage(id:string){
+        const response = await fetch(`/api/message/delete?id=${id}`, {
+            method: "POST",
+            headers: {
+                "Content-Type":"application/json"
+            },
+        })
+        if (!response.ok) {
+            console.log(response.statusText)
+            return
+        }
+        const {code} = await response.json()
+        return code===0
+    }
+
+    async function send(){
+        const message: Message = await createOrUpdateMessage({
+            id: "",
+            role: "user",
+            content:messageText,
+            chatId:chatIdRef.current
+        })
         dispatch({ type: ActionType.ADD_MESSAGE, message })
         const messages = messageList.concat([message])
         doSend(messages)
@@ -30,6 +66,11 @@ export default function ChatInput() {
         const messages = [...messageList]
         if (messages.length !== 0 && messages[messages.length - 1].role === "assistant")
         {
+            const result = await deleteMessage(messages[messages.length-1].id)
+            if(!result){
+                console.log("delete error")
+                return
+            }
             dispatch({
                 type: ActionType.REMOVE_MESSAGE,
                 message:messages[messages.length-1]
@@ -43,7 +84,7 @@ export default function ChatInput() {
         
         
         const body: MessageRequestBody = { messages: messages, model: currentModel }
-        
+        console.log(messages)
         setMessageText("")
         const controller = new AbortController()
         const response = await fetch("/api/chat", {
@@ -62,11 +103,12 @@ export default function ChatInput() {
             console.log("body error")
             return
         }
-        const responseMessage: Message = {
-            id: uuidv4(),
+        const responseMessage: Message =await createOrUpdateMessage({
+            id: "",
             role: "assistant",
-            content:""
-        }
+            content:"",
+            chatId:chatIdRef.current
+        })
         dispatch({ type:ActionType.ADD_MESSAGE,message:responseMessage})   
         dispatch({
             type: ActionType.UPDATE,
@@ -90,6 +132,7 @@ export default function ChatInput() {
             content += chunk
             dispatch({ type: ActionType.UPDATE_MESSAGE, message: { ...responseMessage ,content:content} })
         }
+        createOrUpdateMessage({...responseMessage,content})
         dispatch({
             type: ActionType.UPDATE,
             field: "streamingId",
