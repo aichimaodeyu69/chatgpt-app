@@ -3,19 +3,29 @@ import { MdRefresh } from 'react-icons/md'
 import { PiLightningFill ,PiStopBold } from 'react-icons/pi'
 import TextAreaAutoSize from 'react-textarea-autosize'
 import { FiSend } from 'react-icons/fi'
-import { useRef, useState } from 'react'
+import { useRef, useState,useEffect } from 'react'
 import {v4 as uuidv4} from 'uuid'
 import { useAppContext } from '@/components/AppContext'
 import { Message, MessageRequestBody } from '@/types/chat'
 import { ActionType } from '@/reducers/AppReducer'
+import { useEventBusContext } from '@/components/EventBusContext'
 
 export default function ChatInput() {
     const [messageText, setMessageText] = useState("")
     const stopRef =  useRef(false)
     const chatIdRef = useRef("")
     const {
-        state:{messageList,currentModel,streamingId},dispatch
+        state:{messageList,currentModel,streamingId,selectedChat},dispatch
     } = useAppContext()
+    const {publish} = useEventBusContext()
+
+    useEffect(()=>{
+        if(chatIdRef.current===selectedChat?.id){
+            return
+        }
+        chatIdRef.current =selectedChat?.id??""
+        stopRef.current = true 
+    },[selectedChat])
 
     async function createOrUpdateMessage(message:Message){
         const response = await fetch("/api/message/update", {
@@ -32,6 +42,7 @@ export default function ChatInput() {
         const {data} = await response.json()
         if(!chatIdRef.current){
             chatIdRef.current = data.message.chatId
+            publish("fetchChatList")
         }
         return data.message
     }
@@ -81,8 +92,7 @@ export default function ChatInput() {
     }
 
     async function doSend(messages:Message[]) {
-        
-        
+        stopRef.current = false
         const body: MessageRequestBody = { messages: messages, model: currentModel }
         console.log(messages)
         setMessageText("")
@@ -128,7 +138,6 @@ export default function ChatInput() {
             const result = await reader.read()
             done = result.done
             const chunk = decoder.decode(result.value)
-            console.log(chunk)
             content += chunk
             dispatch({ type: ActionType.UPDATE_MESSAGE, message: { ...responseMessage ,content:content} })
         }
