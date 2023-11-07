@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
         async start(controller) {
+            // const messageText = messages[messages.length-1].content
             const messageText = messages[messages.length-1].content
             for (let i = 0; i < messageText.length; i++) {
                 await sleep(100)
