@@ -43,6 +43,11 @@ export default function ChatInput() {
         if(!chatIdRef.current){
             chatIdRef.current = data.message.chatId
             publish("fetchChatList")
+            dispatch({
+                type: ActionType.UPDATE,
+                field: "selectedChat",
+                value: { id: chatIdRef.current }
+            })
         }
         return data.message
     }
@@ -131,7 +136,6 @@ export default function ChatInput() {
         let content = ""
         while (!done) {
             if (stopRef.current) {
-                stopRef.current = false
                 controller.abort()
                 break
             }
